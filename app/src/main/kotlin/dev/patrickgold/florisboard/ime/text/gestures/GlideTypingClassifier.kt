@@ -25,6 +25,11 @@ import dev.patrickgold.florisboard.ime.text.keyboard.TextKey
  */
 interface GlideTypingClassifier {
     /**
+     * Whether or not the classifier is ready to receive points.
+     */
+    fun isReady(): Boolean
+
+    /**
      * Called to notify gesture classifier that it can add a new point to the gesture.
      *
      * @param position The position to add
@@ -55,4 +60,6 @@ interface GlideTypingClassifier {
     fun getSuggestions(maxSuggestionCount: Int, gestureCompleted: Boolean): List<CharSequence>
 
     fun clear()
+
+    fun close()
 }

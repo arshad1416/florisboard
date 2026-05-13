@@ -28,6 +28,7 @@ import dev.patrickgold.jetpref.datastore.ui.DialogSliderPreference
 import dev.patrickgold.jetpref.datastore.ui.ExperimentalJetPrefDatastoreUi
 import dev.patrickgold.jetpref.datastore.ui.ListPreference
 import dev.patrickgold.jetpref.datastore.ui.PreferenceGroup
+import dev.patrickgold.jetpref.datastore.ui.SwitchPreference
 import org.florisboard.lib.compose.FlorisInfoCard
 import org.florisboard.lib.compose.stringRes
 
@@ -38,24 +39,23 @@ fun GesturesScreen() = FlorisScreen {
     previewFieldVisible = true
 
     content {
-        FlorisInfoCard(
-            modifier = Modifier.padding(8.dp),
-            text = """
-                Glide typing is currently not available and will be re-implemented from the ground up with word suggestions & the new keyboard layout engine. DO NOT file an issue for this missing functionality.
-            """.trimIndent()
-        )
-
-        /*PreferenceGroup(title = stringRes(R.string.pref__glide__title)) {
+        PreferenceGroup(title = stringRes(R.string.pref__glide__title)) {
             SwitchPreference(
                 prefs.glide.enabled,
                 title = stringRes(R.string.pref__glide__enabled__label),
                 summary = stringRes(R.string.pref__glide__enabled__summary),
             )
+            ListPreference(
+                prefs.glide.glideEngineMode,
+                title = "Glide Engine Mode",
+                entries = enumDisplayEntriesOf(dev.patrickgold.florisboard.ime.text.gestures.GlideEngineMode::class),
+                enabledIf = { prefs.glide.enabled.get() },
+            )
             SwitchPreference(
                 prefs.glide.showTrail,
                 title = stringRes(R.string.pref__glide__show_trail__label),
                 summary = stringRes(R.string.pref__glide__show_trail__summary),
-                enabledIf = { prefs.glide.enabled isEqualTo true },
+                enabledIf = { prefs.glide.enabled.get() },
             )
             DialogSliderPreference(
                 prefs.glide.trailDuration,
@@ -64,13 +64,13 @@ fun GesturesScreen() = FlorisScreen {
                 min = 0,
                 max = 500,
                 stepIncrement = 10,
-                enabledIf = { prefs.glide.enabled isEqualTo true && prefs.glide.showTrail isEqualTo true },
+                enabledIf = { prefs.glide.enabled.get() && prefs.glide.showTrail.get() },
             )
             SwitchPreference(
                 prefs.glide.showPreview,
                 title = stringRes(R.string.pref__glide__show_preview),
                 summary = "Word suggestions must be enabled for this to take effect!",
-                enabledIf = { prefs.glide.enabled isEqualTo true },
+                enabledIf = { prefs.glide.enabled.get() },
             )
             DialogSliderPreference(
                 prefs.glide.previewRefreshDelay,
@@ -79,40 +79,40 @@ fun GesturesScreen() = FlorisScreen {
                 min = 50,
                 max = 500,
                 stepIncrement = 25,
-                enabledIf = { prefs.glide.enabled isEqualTo true && prefs.glide.showPreview isEqualTo true },
+                enabledIf = { prefs.glide.enabled.get() && prefs.glide.showPreview.get() },
             )
             SwitchPreference(
                 prefs.glide.immediateBackspaceDeletesWord,
                 title = stringRes(R.string.pref__glide__immediate_backspace_deletes_word__label),
                 summary = stringRes(R.string.pref__glide__immediate_backspace_deletes_word__summary),
-                enabledIf = { prefs.glide.enabled isEqualTo true },
+                enabledIf = { prefs.glide.enabled.get() },
             )
-        }*/
+        }
 
         PreferenceGroup(title = stringRes(R.string.pref__gestures__general_title)) {
             ListPreference(
                 prefs.gestures.swipeUp,
                 title = stringRes(R.string.pref__gestures__swipe_up__label),
                 entries = enumDisplayEntriesOf(SwipeAction::class, "general"),
-                enabledIf = { prefs.glide.enabled isEqualTo false },
+                enabledIf = { !prefs.glide.enabled.get() },
             )
             ListPreference(
                 prefs.gestures.swipeDown,
                 title = stringRes(R.string.pref__gestures__swipe_down__label),
                 entries = enumDisplayEntriesOf(SwipeAction::class, "general"),
-                enabledIf = { prefs.glide.enabled isEqualTo false },
+                enabledIf = { !prefs.glide.enabled.get() },
             )
             ListPreference(
                 prefs.gestures.swipeLeft,
                 title = stringRes(R.string.pref__gestures__swipe_left__label),
                 entries = enumDisplayEntriesOf(SwipeAction::class, "general"),
-                enabledIf = { prefs.glide.enabled isEqualTo false },
+                enabledIf = { !prefs.glide.enabled.get() },
             )
             ListPreference(
                 prefs.gestures.swipeRight,
                 title = stringRes(R.string.pref__gestures__swipe_right__label),
                 entries = enumDisplayEntriesOf(SwipeAction::class, "general"),
-                enabledIf = { prefs.glide.enabled isEqualTo false },
+                enabledIf = { !prefs.glide.enabled.get() },
             )
         }
 

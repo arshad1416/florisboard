@@ -10,7 +10,7 @@ The FlorisBoard community is international, as such we require all contributions
 
 ### Translations
 
-To make FlorisBoard accessible in as many languages as possible, the platform [Crowdin](https://crowdin.florisboard.org) is used to crowdsource and manage translations.  The list of languages in Crowdin covers a good range of languages, but feel free to email [florisboard@patrickgold.dev](mailto:florisboard@patrickgold.dev) to request a new language.
+To make FlorisBoard accessible in as many languages as possible, the platform [Crowdin](https://crowdin.florisboard.org) is used to crowdsource and manage translations. The list of languages in Crowdin covers a good range of languages, but feel free to email [florisboard@patrickgold.dev](mailto:florisboard@patrickgold.dev) to request a new language.
 
 > [!IMPORTANT]
 > This is the only source of translations - **PRs that add/update translations are not accepted.**
@@ -45,18 +45,28 @@ If you are overwhelmed by the code don't hesitate to ask for help in the [dev ch
 ### System requirements for development
 
 - Desktop PC with Linux or WSL2 (Windows)
-  - MacOS and Windows without WSL2 probably works too however there's no official support
+    - MacOS and Windows without WSL2 probably works too however there's no official support
 - At least 16GB of RAM (because of Android Studio / IntelliJ)
 - The following tools must be installed:
-  - Android Studio (bundles SDK and NDK) or IntelliJ with Android and Compose plugin
-  - Java 17
-  - CMake 3.22+
-  - Clang 15+
-  - Git
-  - [Rust](https://www.rust-lang.org/tools/install)
+    - Android Studio (bundles SDK and NDK) or IntelliJ with Android and Compose plugin
+    - Java 17
+    - CMake 3.22+
+    - Clang 15+
+    - Git
+    - [Rust](https://www.rust-lang.org/tools/install)
+
+> Note: If you get an error like "Unable to locate a Java Runtime" when running `./gradlew`, install JDK 17 and make it available to the shell. On macOS you can use Homebrew:
+>
+> ```bash
+> brew install openjdk@17
+> export JAVA_HOME="$(/usr/libexec/java_home -v17)"
+> ```
+>
+> Android Studio's embedded JDK works for IDE builds, but command-line Gradle builds still need `JAVA_HOME` or a system JDK.
+
 - Utilities (optional)
-  - Python 3.10+
-  - Bash, realpath, grep, ...
+    - Python 3.10+
+    - Bash, realpath, grep, ...
 
 > [!IMPORTANT]
 > If using IntelliJ IDEA you have to enable `Future AGP Versions` otherwise AGP 9.0.0 will not work with your IDE.
@@ -66,7 +76,7 @@ If you are overwhelmed by the code don't hesitate to ask for help in the [dev ch
 
 If you want to manually build the project without Android Studio you must ensure that the Android SDK and NDK are properly installed on your system. Then issue
 
-```./gradlew clean && ./gradlew assembleDebug```
+`./gradlew clean && ./gradlew assembleDebug`
 
 and Gradle should take care of every build task.
 

@@ -45,6 +45,7 @@ import dev.patrickgold.florisboard.ime.smartbar.SmartbarLayout
 import dev.patrickgold.florisboard.ime.smartbar.quickaction.QuickAction
 import dev.patrickgold.florisboard.ime.smartbar.quickaction.QuickActionArrangement
 import dev.patrickgold.florisboard.ime.smartbar.quickaction.QuickActionJsonConfig
+import dev.patrickgold.florisboard.ime.text.gestures.GlideEngineMode
 import dev.patrickgold.florisboard.ime.text.gestures.SwipeAction
 import dev.patrickgold.florisboard.ime.text.key.KeyCode
 import dev.patrickgold.florisboard.ime.text.key.KeyHintConfiguration
@@ -342,6 +343,10 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         val enabled = boolean(
             key = "glide__enabled",
             default = false,
+        )
+        val glideEngineMode = enum(
+            key = "glide__engine_mode",
+            default = GlideEngineMode.STATISTICAL_FOSS,
         )
         val showTrail = boolean(
             key = "glide__show_trail",
@@ -745,6 +750,26 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
         val editorLevel = enum(
             key = "theme__editor_level",
             default = SnyggLevel.ADVANCED,
+        )
+    }
+
+    val aiFeatures = AiFeatures()
+    inner class AiFeatures {
+        val proofreadEnabled = boolean(
+            key = "ai_features__proofread_enabled",
+            default = true,
+        )
+        val voiceTypingEnabled = boolean(
+            key = "ai_features__voice_typing_enabled",
+            default = true,
+        )
+        val localInferenceEnabled = boolean(
+            key = "ai_features__local_inference_enabled",
+            default = true,
+        )
+        val wifiOnlyDownload = boolean(
+            key = "ai_features__wifi_only_download",
+            default = true,
         )
     }
 

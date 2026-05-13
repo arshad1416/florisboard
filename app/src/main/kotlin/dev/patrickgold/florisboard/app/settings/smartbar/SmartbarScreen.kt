@@ -85,5 +85,14 @@ fun SmartbarScreen() = FlorisScreen {
                 visibleIf = { prefs.smartbar.layout isEqualTo SmartbarLayout.SUGGESTIONS_ACTIONS_EXTENDED },
             )
         }
+
+        PreferenceGroup(title = "AI Features") {
+            SwitchPreference(
+                prefs.aiFeatures.proofreadEnabled,
+                title = "Enable AI Proofreading",
+                summary = "Adds a button to the Smartbar to fix grammar and typos in your message using on-device Gemma AI.",
+                enabledIf = { prefs.smartbar.enabled isEqualTo true },
+            )
+        }
     }
 }

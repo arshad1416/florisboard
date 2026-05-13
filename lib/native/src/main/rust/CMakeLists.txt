@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(florisboard)
+project(florisboard C CXX)
 
 if(CMAKE_HOST_WIN32)
     set(USER_HOME "$ENV{USERPROFILE}")
@@ -16,9 +16,37 @@ else()
     message(STATUS "Using Rust toolchain: ${RUSTUP_EXECUTABLE}")
 endif()
 
+### llama.cpp — on-device AI inference backend ###
+
+# Static linking — we bundle everything into libfl_native.so
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libs")
+
+# Disable all GPU backends and optional features
+set(GGML_CUDA  OFF CACHE BOOL "")
+set(GGML_METAL OFF CACHE BOOL "")
+set(GGML_VULKAN OFF CACHE BOOL "")
+set(GGML_SYCL  OFF CACHE BOOL "")
+set(GGML_CANN  OFF CACHE BOOL "")
+set(GGML_RPC   OFF CACHE BOOL "")
+set(GGML_BLAS  OFF CACHE BOOL "")
+set(GGML_CPU_ALL_VARIANTS OFF CACHE BOOL "")
+set(GGML_CPU_HBM      OFF CACHE BOOL "")
+set(GGML_CPU_KLEIDIAI OFF CACHE BOOL "")
+set(GGML_NATIVE OFF CACHE BOOL "Cross-compiling for Android")
+set(GGML_BACKEND_DL OFF CACHE BOOL "No dynamic backend loading")
+
+# Disable llama.cpp tools, tests, examples, server
+set(LLAMA_BUILD_COMMON   OFF CACHE BOOL "")
+set(LLAMA_BUILD_TESTS    OFF CACHE BOOL "")
+set(LLAMA_BUILD_TOOLS    OFF CACHE BOOL "")
+set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "")
+set(LLAMA_BUILD_SERVER   OFF CACHE BOOL "")
+
+add_subdirectory(../llama.cpp llama_build)
+
 ### FlorisBoard ###
 
-add_library(fl_native SHARED src/lib.c)
+add_library(fl_native SHARED src/lib.c src/llama_jni.cpp)
 
 if(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
     set(ANDROID_TARGET "armv7a-linux-androideabi")
@@ -54,7 +82,9 @@ add_custom_target(
 
 add_dependencies(fl_native fl_native_rust_build)
 
-# TODO: check if there's a better way than allowing multiple symbol definitions
+# Link llama.cpp static lib + Rust native lib into the final .so
+# --whole-archive and --allow-multiple-definition are for the Rust static lib only
 target_link_libraries(fl_native
-    android log -Wl,--whole-archive -Wl,--allow-multiple-definition -Wl,--build-id=none ${FL_NATIVE_RUST_PATH}
+    android log llama
+    -Wl,--whole-archive -Wl,--allow-multiple-definition -Wl,--build-id=none ${FL_NATIVE_RUST_PATH}
 )

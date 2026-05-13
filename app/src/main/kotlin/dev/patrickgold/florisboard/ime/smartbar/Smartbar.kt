@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
@@ -63,6 +64,7 @@ import dev.patrickgold.florisboard.ime.smartbar.quickaction.QuickActionButton
 import dev.patrickgold.florisboard.ime.smartbar.quickaction.QuickActionsRow
 import dev.patrickgold.florisboard.ime.smartbar.quickaction.ToggleOverflowPanelAction
 import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
+import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.keyboardManager
 import dev.patrickgold.florisboard.nlpManager
 import dev.patrickgold.jetpref.datastore.model.collectAsState
@@ -147,6 +149,40 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
     val keyboardManager by context.keyboardManager()
     val nlpManager by context.nlpManager()
     val scope = rememberCoroutineScope()
+
+    val gemmaManager = FlorisImeService.imsOrNull()?.gemmaManager
+    val proofreadEnabled by prefs.aiFeatures.proofreadEnabled.collectAsState()
+    val voiceTypingEnabled by prefs.aiFeatures.voiceTypingEnabled.collectAsState()
+
+    @Composable
+    fun GemmaActions() {
+        if (gemmaManager == null) return
+
+        if (proofreadEnabled) {
+            SnyggIconButton(
+                elementName = FlorisImeUi.SmartbarExtendedActionsToggle.elementName,
+                onClick = { gemmaManager.proofread() },
+                modifier = Modifier.sizeIn(maxHeight = FlorisImeSizing.smartbarHeight).aspectRatio(1f)
+            ) {
+                SnyggIcon(
+                    imageVector = ImageVector.vectorResource(id = R.drawable.ic_ai_proofread),
+                    contentDescription = "AI Proofread",
+                )
+            }
+        }
+        if (voiceTypingEnabled) {
+            SnyggIconButton(
+                elementName = FlorisImeUi.SmartbarExtendedActionsToggle.elementName,
+                onClick = { gemmaManager.toggleVoiceInput() },
+                modifier = Modifier.sizeIn(maxHeight = FlorisImeSizing.smartbarHeight).aspectRatio(1f)
+            ) {
+                SnyggIcon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "AI Voice Input",
+                )
+            }
+        }
+    }
 
     val inlineSuggestions by NlpInlineAutofill.suggestions.collectAsState()
     LaunchedEffect(inlineSuggestions) {
@@ -341,6 +377,7 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
 
             SmartbarLayout.SUGGESTIONS_ACTIONS_SHARED -> {
                 if (!flipToggles) {
+                    GemmaActions()
                     SharedActionsToggle()
                     CenterContent()
                     StickyAction()
@@ -348,11 +385,13 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
                     StickyAction()
                     CenterContent()
                     SharedActionsToggle()
+                    GemmaActions()
                 }
             }
 
             SmartbarLayout.SUGGESTIONS_ACTIONS_EXTENDED -> {
                 if (!flipToggles) {
+                    GemmaActions()
                     ExtendedActionsToggle()
                     CenterContent()
                     StickyAction()
@@ -360,6 +399,7 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
                     StickyAction()
                     CenterContent()
                     ExtendedActionsToggle()
+                    GemmaActions()
                 }
             }
         }

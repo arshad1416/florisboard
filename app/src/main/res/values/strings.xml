@@ -1160,4 +1160,7 @@
         <item quantity="other">{v} candidates</item>
     </plurals>
 
+    <string name="enum__glide_engine_mode__native_legacy">Native (Google)</string>
+    <string name="enum__glide_engine_mode__statistical_foss">Statistical (FOSS)</string>
+    <string name="enum__glide_engine_mode__ai_neural_stage2">AI Neural Stage 2</string>
 </resources>

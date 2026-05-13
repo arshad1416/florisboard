@@ -146,6 +146,8 @@ class FlorisImeService : LifecycleInputMethodService() {
             val ims = FlorisImeServiceReference.get() ?: return null
             return ims.windowController
         }
+
+        fun imsOrNull(): FlorisImeService? = FlorisImeServiceReference.get()
     }
 
     fun hideUi() {
@@ -262,6 +264,9 @@ class FlorisImeService : LifecycleInputMethodService() {
     private val subtypeManager by subtypeManager()
     private val themeManager by themeManager()
 
+    val gemmaManager = dev.patrickgold.florisboard.gemma.GemmaManager(this)
+    var isVoiceTypingActive by mutableStateOf(false)
+
     val windowController = ImeWindowController(prefs, lifecycleScope)
 
     private val activeState get() = keyboardManager.activeState
@@ -279,9 +284,10 @@ class FlorisImeService : LifecycleInputMethodService() {
     override fun onCreate() {
         super.onCreate()
         FlorisImeServiceReference = WeakReference(this)
-        systemLocalesFlow.value = resources.configuration.locales
+        gemmaManager.onCreate()
 
-        WindowCompat.setDecorFitsSystemWindows(window.window!!, false)
+        systemLocalesFlow.value = resources.configuration.locales
+        WindowCompat.setDecorFitsSystemWindows(window.window!!, true)
         windowController.onConfigurationChanged(resources.configuration)
         windowController.activeWindowConfig.collectLatestIn(lifecycleScope) {
             keyboardManager.updateActiveEvaluators() // TODO: wacky solution, but works for now
@@ -352,6 +358,7 @@ class FlorisImeService : LifecycleInputMethodService() {
     }
 
     override fun onDestroy() {
+        gemmaManager.onDestroy()
         super.onDestroy()
         unregisterReceiver(wallpaperChangeReceiver)
         FlorisImeServiceReference = WeakReference(null)
@@ -396,6 +403,14 @@ class FlorisImeService : LifecycleInputMethodService() {
     ) {
         flogInfo { "old={start=$oldSelStart,end=$oldSelEnd} new={start=$newSelStart,end=$newSelEnd} composing={start=$candidatesStart,end=$candidatesEnd}" }
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        
+        if (isVoiceTypingActive && gemmaManager.isBusy) return
+
+        // Detect user overrides of AI polish corrections
+        if (!isVoiceTypingActive) {
+            gemmaManager.checkUserOverride(currentInputConnection?.getTextBeforeCursor(newSelEnd, 0))
+        }
+
         activeState.batchEdit {
             activeState.isSelectionMode = (newSelEnd - newSelStart) != 0
             editorInstance.handleSelectionUpdate(

@@ -38,6 +38,7 @@ import dev.patrickgold.florisboard.ime.smartbar.CandidatesDisplayMode
 import dev.patrickgold.florisboard.ime.smartbar.ExtendedActionsPlacement
 import dev.patrickgold.florisboard.ime.smartbar.IncognitoDisplayMode
 import dev.patrickgold.florisboard.ime.smartbar.SmartbarLayout
+import dev.patrickgold.florisboard.ime.text.gestures.GlideEngineMode
 import dev.patrickgold.florisboard.ime.text.gestures.SwipeAction
 import dev.patrickgold.florisboard.ime.text.key.KeyHintMode
 import dev.patrickgold.florisboard.ime.text.key.UtilityKeyAction
@@ -733,6 +734,22 @@ private val ENUM_DISPLAY_ENTRIES = mapOf<Pair<KClass<*>, String>, @Composable ()
             )
         }
     },
+    GlideEngineMode::class to DEFAULT to {
+        listPrefEntries {
+            entry(
+                key = GlideEngineMode.NATIVE_LEGACY,
+                label = stringRes(R.string.enum__glide_engine_mode__native_legacy),
+            )
+            entry(
+                key = GlideEngineMode.STATISTICAL_FOSS,
+                label = stringRes(R.string.enum__glide_engine_mode__statistical_foss),
+            )
+            entry(
+                key = GlideEngineMode.AI_NEURAL_STAGE2,
+                label = stringRes(R.string.enum__glide_engine_mode__ai_neural_stage2),
+            )
+        }
+    },
 )
 
 @Composable
@@ -741,6 +758,6 @@ fun <V : Any> enumDisplayEntriesOf(
     variant: String = DEFAULT,
 ): List<ListPreferenceEntry<V>> {
     @Suppress("UNCHECKED_CAST")
-    return ENUM_DISPLAY_ENTRIES[enumClass to variant]?.invoke()
-        as List<ListPreferenceEntry<V>>
+    return ENUM_DISPLAY_ENTRIES[enumClass to variant]?.invoke() as? List<ListPreferenceEntry<V>>
+        ?: emptyList()
 }

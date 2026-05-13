@@ -27,3 +27,14 @@
 
 # @Serializable and @Polymorphic are used at runtime for polymorphic serialization.
 -keepattributes RuntimeVisibleAnnotations,AnnotationDefault
+
+# Keep JNI bridge classes for LatinIME native library
+-keep class com.android.inputmethod.keyboard.ProximityInfo { *; }
+-keep class com.android.inputmethod.latin.BinaryDictionary { *; }
+
+# Keep MediaPipe LLM Inference classes (used via reflection and JNI)
+-keep class com.google.mediapipe.tasks.genai.llminference.** { *; }
+-keep class com.google.mediapipe.tasks.components.containers.** { *; }
+
+# Keep Gemma AI feature classes (used reflectively by Coroutine internals)
+-keep class dev.patrickgold.florisboard.gemma.** { *; }

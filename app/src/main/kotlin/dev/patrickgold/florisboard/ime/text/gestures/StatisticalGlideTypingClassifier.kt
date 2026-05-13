@@ -56,8 +56,9 @@ class StatisticalGlideTypingClassifier(context: Context) : GlideTypingClassifier
     private var wordDataSubtype: Subtype? = null
     private var layoutSubtype: Subtype? = null
     private var currentSubtype: Subtype? = null
-    val ready: Boolean
-        get() = currentSubtype == layoutSubtype && wordDataSubtype == layoutSubtype && wordDataSubtype != null
+    override fun isReady(): Boolean {
+        return currentSubtype == layoutSubtype && wordDataSubtype == layoutSubtype && wordDataSubtype != null
+    }
     private val prunerCache = LruCache<Subtype, Pruner>(PRUNER_CACHE_SIZE)
 
     /**
@@ -252,6 +253,10 @@ class StatisticalGlideTypingClassifier(context: Context) : GlideTypingClassifier
 
     override fun clear() {
         gesture.clear()
+    }
+
+    override fun close() {
+        // Nothing to close here
     }
 
     private fun calcLocationDistance(gesture1: Gesture, gesture2: Gesture): Float {
