@@ -259,6 +259,11 @@ class GemmaManager(private val service: FlorisImeService) {
                 } else {
                     service.showShortToastSync("Looks good!")
                 }
+            } catch (e: CancellationException) {
+                // Swallow
+            } catch (e: Exception) {
+                Log.e(TAG, "Proofread failed", e)
+                service.showLongToastSync("Proofread failed: ${e.message}")
             } finally {
                 stateMutex.withLock { state.value = State.Idle }
             }
@@ -369,14 +374,9 @@ class GemmaManager(private val service: FlorisImeService) {
     ): String = withContext(Dispatchers.IO) {
         if (rawText.isBlank()) return@withContext rawText
 
-        val inf = ensureModelReady() ?: return@withContext rawText
+        val inf = ensureModelReady() ?: throw IllegalStateException("AI model not available — check RAM and download")
 
-        try {
-            inf.polish(rawText, contextText, corrections)
-        } catch (e: Exception) {
-            Log.e(TAG, "localPolish failed", e)
-            rawText
-        }
+        inf.polish(rawText, contextText, corrections)
     }
 
     private fun mergedCorrections(): Map<String, String> {

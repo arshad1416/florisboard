@@ -77,9 +77,11 @@ class StreamingTranscriber(private val context: Context) {
             // without offline language models. Let the system decide.
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
             
-            // Thermal/Accuracy Balance: 5s silence before auto-stop
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L)
+            // Prevent auto-stop on brief pauses — user controls start/stop via mic toggle.
+            // 10s complete silence and 8s possible-complete give generous thinking pauses.
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 8000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1000L)
         }
         rec.startListening(intent)
     }

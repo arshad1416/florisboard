@@ -202,8 +202,97 @@ Java_org_florisboard_libnative_LlamaInference_nativePolish(
     env->ReleaseStringUTFChars(corrections_j, corrections);
 
     if (prompt_len < 0) {
-        return NULL;
+        // Buffer too small — retry with exact size needed
+        int needed = -prompt_len;
+        LOGI("prompt buffer too small (4096), retrying with %d bytes", needed);
+        char *big_prompt = (char *)malloc((size_t)needed);
+        if (!big_prompt) return NULL;
+        // Re-get Java strings (they were released above)
+        raw_text = env->GetStringUTFChars(raw_text_j, NULL);
+        context_text = env->GetStringUTFChars(context_text_j, NULL);
+        corrections = env->GetStringUTFChars(corrections_j, NULL);
+        prompt_len = build_chatml_prompt(
+            raw_text, context_text, corrections, big_prompt, needed);
+        env->ReleaseStringUTFChars(raw_text_j, raw_text);
+        env->ReleaseStringUTFChars(context_text_j, context_text);
+        env->ReleaseStringUTFChars(corrections_j, corrections);
+        if (prompt_len < 0) { free(big_prompt); return NULL; }
+
+        // Process with big_prompt (inline the rest of the function)
+        // Clear KV cache to prevent context overflow across calls
+        llama_kv_cache_clear(inf->ctx);
+        LOGI("KV cache cleared before big-prompt inference");
+
+        int n_tokens_max_b = prompt_len / 2 + 256;
+        llama_token *tokens_b = (llama_token *)malloc((size_t)n_tokens_max_b * sizeof(llama_token));
+        if (!tokens_b) { free(big_prompt); return NULL; }
+
+        int n_tokens_b = llama_tokenize(inf->vocab, big_prompt, prompt_len, tokens_b, n_tokens_max_b, 0, 0);
+        if (n_tokens_b < 0) {
+            int needed_t = -n_tokens_b;
+            llama_token *new_t = (llama_token *)realloc(tokens_b, (size_t)needed_t * sizeof(llama_token));
+            if (!new_t) { free(tokens_b); free(big_prompt); return NULL; }
+            tokens_b = new_t;
+            n_tokens_b = llama_tokenize(inf->vocab, big_prompt, prompt_len, tokens_b, needed_t, 0, 0);
+            if (n_tokens_b < 0) { free(tokens_b); free(big_prompt); return NULL; }
+        }
+
+        int n_batch_b = (int)llama_n_batch(inf->ctx);
+        int n_processed_b = 0;
+        while (n_processed_b < n_tokens_b) {
+            int chunk = n_tokens_b - n_processed_b;
+            if (chunk > n_batch_b) chunk = n_batch_b;
+            struct llama_batch batch = llama_batch_get_one(tokens_b + n_processed_b, chunk);
+            int ret = llama_decode(inf->ctx, batch);
+            if (ret != 0) { free(tokens_b); free(big_prompt); return NULL; }
+            n_processed_b += chunk;
+        }
+
+        // Generate response
+        char *result_b = (char *)malloc(4096);
+        if (!result_b) { free(tokens_b); free(big_prompt); return NULL; }
+        int result_len_b = 0;
+        llama_token eos_tok_b = llama_vocab_eos(inf->vocab);
+        int n_gen_b = 0;
+        const int max_new_b = 512;
+
+        while (n_gen_b < max_new_b) {
+            llama_token tok = llama_sampler_sample(inf->sampler, inf->ctx, -1);
+            if (tok == eos_tok_b) break;
+            char piece[256];
+            int n_chars = llama_token_to_piece(inf->vocab, tok, piece, (int)sizeof(piece) - 1, 0, 0);
+            if (n_chars < 0) break;
+            piece[n_chars] = '\0';
+            int rem = 4095 - result_len_b;
+            if (rem <= 0) break;
+            int copy = n_chars; if (copy > rem) copy = rem;
+            memcpy(result_b + result_len_b, piece, (size_t)copy);
+            result_len_b += copy;
+            result_b[result_len_b] = '\0';
+            struct llama_batch next = llama_batch_get_one(&tok, 1);
+            if (llama_decode(inf->ctx, next) != 0) break;
+            n_gen_b++;
+        }
+
+        free(tokens_b); free(big_prompt);
+
+        if (result_len_b == 0) { free(result_b); return NULL; }
+        // Trim ChatML markers and whitespace
+        const char *im_end_b = strstr(result_b, "<|im_end|>");
+        if (im_end_b) { result_len_b = (int)(im_end_b - result_b); result_b[result_len_b] = '\0'; }
+        const char *im_start_b = strstr(result_b, "<|im_start|>");
+        if (im_start_b) { int nl = (int)(im_start_b - result_b); if (nl < result_len_b) { result_len_b = nl; result_b[result_len_b] = '\0'; } }
+        while (result_len_b > 0 && (result_b[result_len_b-1] == ' ' || result_b[result_len_b-1] == '\n')) result_b[--result_len_b] = '\0';
+        int s_b = 0;
+        while (s_b < result_len_b && (result_b[s_b] == ' ' || result_b[s_b] == '\n')) s_b++;
+        jstring ret_b = env->NewStringUTF(result_b + s_b);
+        free(result_b);
+        return ret_b;
     }
+
+    // Clear KV cache before processing new prompt to prevent
+    // context overflow from previous polish/proofread calls.
+    llama_kv_cache_clear(inf->ctx);
 
     // Tokenize the prompt
     int n_tokens_max = prompt_len / 2 + 256;
