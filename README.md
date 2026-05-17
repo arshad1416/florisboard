@@ -1,158 +1,140 @@
 <img align="left" width="80" height="80"
 src=".github/repo_icon.png" alt="App icon">
 
-# FlorisBoard [![Crowdin](https://badges.crowdin.net/florisboard/localized.svg)](https://crowdin.florisboard.org) [![Matrix badge](https://img.shields.io/badge/chat-%23florisboard%3amatrix.org-blue)](https://matrix.to/#/#florisboard:matrix.org) [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md) [![FlorisBoard CI](https://github.com/florisboard/florisboard/actions/workflows/android.yml/badge.svg?event=push)](https://github.com/florisboard/florisboard/actions/workflows/android.yml)
+# Gemma FlorisBoard
 
-**FlorisBoard** is a free and open-source keyboard for Android 8.0+
-devices. It aims at being modern, user-friendly and customizable while
-fully respecting your privacy. Currently in beta state.
+An on-device AI-enhanced fork of [FlorisBoard](https://github.com/florisboard/florisboard), the free and open-source keyboard for Android 8.0+. This fork replaces cloud-based AI with fully offline, on-device inference using [llama.cpp](https://github.com/ggerganov/llama.cpp) and a Qwen2.5 1.5B GGUF model — no internet, no API keys, no data leaving your device.
 
-<table>
-<tr>
-<th style="text-align: center; width: 50%">
-<h3>Stable <a href="https://github.com/florisboard/florisboard/releases/latest"><img alt="Latest stable release" src="https://img.shields.io/github/v/release/florisboard/florisboard?sort=semver&display_name=tag&color=28a745"></a></h3>
-</th>
-<th style="text-align: center; width: 50%">
-<h3>Preview <a href="https://github.com/florisboard/florisboard/releases"><img alt="Latest preview release" src="https://img.shields.io/github/v/release/florisboard/florisboard?include_prereleases&sort=semver&display_name=tag&color=fd7e14"></a></h3>
-</th>
-</tr>
-<tr>
-<td style="vertical-align: top">
-<p><i>Major versions only</i><br><br>Updates are more polished, new features are matured and tested through to ensure a stable experience.</p>
-</td>
-<td style="vertical-align: top">
-<p><i>Major + Alpha/Beta/Rc versions</i><br><br>Updates contain new features that may not be fully matured yet and bugs are more likely to occur. Allows you to give early feedback.</p>
-</td>
-</tr>
-<tr>
-<td style="vertical-align: top">
-<p>
-<a href="https://apt.izzysoft.de/fdroid/index/apk/dev.patrickgold.florisboard"><img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="64" alt="IzzySoft repo badge"></a>
-<a href="https://f-droid.org/packages/dev.patrickgold.florisboard"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" height="64" alt="F-Droid badge"></a>
-</p>
-<p>
+## What Makes This Fork Different
 
-**Google Play**: Join the [FlorisBoard Test Group](https://groups.google.com/g/florisboard-closed-beta-test), then visit the [testing page](https://play.google.com/apps/testing/dev.patrickgold.florisboard). Once joined and installed, updates will be delivered like for any other app. ([Store entry](https://play.google.com/store/apps/details?id=dev.patrickgold.florisboard))
+| Feature | Upstream FlorisBoard | This Fork |
+|---|---|---|
+| **AI proofread & polish** | Not available | On-device via llama.cpp + Qwen2.5 1.5B |
+| **Voice transcription** | Not available | On-device streaming with silence detection |
+| **Glide typing engine** | Statistical only | Neural + statistical (auto-fallback) |
+| **Model download** | N/A | Built-in GGUF model manager |
+| **Internet requirement** | None | None (all AI runs locally) |
+| **Privacy for AI features** | N/A | Full — zero data leaves the device |
 
-</p>
-<p>
+## On-Device AI Features
 
-**Obtainium**: [Auto-import stable config][obtainium_stable]
+### Text Polish & Proofread
+Select any text you've typed and run it through the local AI. Grammar fixes, spelling corrections, and clarity improvements — all processed on-device via the `Smartbar` quick action. The AI runs a Qwen2.5 1.5B GGUF model quantized to fit within Android's memory constraints.
 
-</p>
-<p>
+### Streaming Voice Transcription
+Tap-to-talk voice input with automatic silence detection. The transcriber listens for speech, stops when you pause, and inserts the transcribed text directly into the input field. Configurable silence thresholds prevent premature cutoffs during natural speech pauses.
 
-**Manual**: Download and install the APK from the release page.
+### Neural Glide Typing
+A native glide typing classifier using a trained model runs alongside the standard statistical engine. The keyboard defaults to neural when available, with automatic fallback to statistical mode to prevent crash loops.
 
-</p>
-</td>
-<td style="vertical-align: top">
-<p><a href="https://apt.izzysoft.de/fdroid/index/apk/dev.patrickgold.florisboard.beta"><img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="64" alt="IzzySoft repo badge"></a></p>
-<p>
+## Architecture
 
-**Google Play**: Join the [FlorisBoard Test Group](https://groups.google.com/g/florisboard-closed-beta-test), then visit the [preview testing page](https://play.google.com/apps/testing/dev.patrickgold.florisboard.beta). Once joined and installed, updates will be delivered like for any other app. ([Store entry](https://play.google.com/store/apps/details?id=dev.patrickgold.florisboard.beta))
+```
+┌────────────────────────────────────────────┐
+│ Android Keyboard (FlorisBoard fork)         │
+│                                            │
+│  ┌──────────────────────────────────────┐  │
+│  │ Smartbar Quick Actions               │  │
+│  │  ├─ AI Proofread (polish text)       │  │
+│  │  └─ Voice Input (transcribe)         │  │
+│  └──────────────┬───────────────────────┘  │
+│                 │                           │
+│  ┌──────────────▼───────────────────────┐  │
+│  │ GemmaManager.kt                      │  │
+│  │  ├─ localPolish() — llama.cpp JNI   │  │
+│  │  └─ transcribe() — streaming audio  │  │
+│  └──────────────┬───────────────────────┘  │
+│                 │                           │
+│  ┌──────────────▼───────────────────────┐  │
+│  │ libnative (JNI bridge)               │  │
+│  │  ├─ llama_jni.cpp — C++ inference   │  │
+│  │  │   (llama.cpp submodule)          │  │
+│  │  └─ LlamaInference.kt — Kotlin API  │  │
+│  └──────────────┬───────────────────────┘  │
+│                 │                           │
+│  ┌──────────────▼───────────────────────┐  │
+│  │ ModelManager.kt                      │  │
+│  │  └─ GGUF download, cache, verify     │  │
+│  └──────────────────────────────────────┘  │
+│                                            │
+│  ┌──────────────────────────────────────┐  │
+│  │ Glide Typing                         │  │
+│  │  ├─ NativeGlideTypingClassifier      │  │
+│  │  └─ StatisticalGlideTypingClassifier │  │
+│  └──────────────────────────────────────┘  │
+└────────────────────────────────────────────┘
+```
 
-</p>
-<p>
+### Inference Engine
 
-**Obtainium**: [Auto-import preview config][obtainium_preview]
+- **Backend**: [llama.cpp](https://github.com/ggerganov/llama.cpp) (git submodule)
+- **Model**: Qwen2.5 1.5B GGUF (quantized, ~1 GB)
+- **Bridge**: Custom JNI layer (`llama_jni.cpp`) with Kotlin wrapper (`LlamaInference.kt`)
+- **Context**: 512-token window, KV cache cleared between calls
+- **Prompt buffer**: Dynamically allocated (ChatML template-aware) to handle variable-length input
 
-</p>
-<p>
+## Original FlorisBoard Features
 
-**Manual**: Download and install the APK from the release page.
+All upstream features remain intact:
 
-</p>
-</td>
-</tr>
-</table>
-
-Beginning with v0.7 FlorisBoard will enter the public beta on Google Play.
-
-## Highlighted features
 - Integrated clipboard manager / history
 - Advanced theming support and customization
-- Integrated extension support (still evolving)
+- Integrated extension support
 - Emoji keyboard / history / suggestions
+- Full privacy — no network calls, no analytics
 
-> [!IMPORTANT]
-> Word suggestions/spell checking are not included in the current releases
-> and are a major goal for the v0.6 milestone.
+## Installation
 
-Feature roadmap: See [ROADMAP.md](ROADMAP.md)
+Build from source using Android Studio or Gradle:
 
-## Contributing
-Want to contribute to FlorisBoard? That's great to hear! There are lots of
-different ways to help out, please see the [contribution guidelines](CONTRIBUTING.md) for more info.
+```bash
+# Clone with submodules
+git clone --recurse-submodules https://github.com/arshad1416/gemma-florisboard.git
+cd gemma-florisboard
 
-## Addons Store
-The official [Addons Store](https://beta.addons.florisboard.org) offers the possibility for the community to share and download FlorisBoard extensions.
-Instructions on how to publish addons can be found [here](https://github.com/florisboard/florisboard/wiki/How-to-publish-on-FlorisBoard-Addons).
+# Build debug APK
+./gradlew assembleDebug
+```
 
-Many thanks to Ali ([@4H1R](https://github.com/4H1R)) for implementing the store!
+The APK will be at `app/build/outputs/apk/debug/app-debug.apk`.
 
-> [!NOTE]
-> During the initial beta release phase, the Addons Store _will_ only accept theme extensions.
-> Later on we plan to add support for language packs and keyboard extensions.
+> **Note**: First launch after install will download the ~1 GB GGUF model. This requires Wi-Fi and ~2 GB of free storage. Subsequent AI feature usage is fully offline.
 
-## List of permissions FlorisBoard requests
-Please refer to this [page](https://github.com/florisboard/florisboard/wiki/List-of-permissions-FlorisBoard-requests)
-to get more information on this topic.
+## Repository Structure
 
-## APK signing certificate hashes
+```
+gemma-florisboard/
+├── app/src/main/java/dev/patrickgold/florisboard/
+│   └── gemma/                          # AI features (fork-specific)
+│       ├── GemmaManager.kt             # Core AI: polish, proofread, transcribe
+│       ├── ModelManager.kt             # GGUF model download & cache
+│       ├── StreamingTranscriber.kt     # Voice input with silence detection
+│       ├── NeuralGemmaGlideClassifier.kt
+│       ├── PersonalDictionary.kt
+│       └── ContactNamesProvider.kt
+├── lib/native/src/main/
+│   ├── llama.cpp                       # llama.cpp submodule
+│   └── rust/src/llama_jni.cpp          # JNI bridge to llama.cpp
+├── lib/native/.../LlamaInference.kt    # Kotlin wrapper for JNI
+├── app/.../text/gestures/
+│   ├── NativeGlideTypingClassifier.kt  # Neural glide typing
+│   └── StatisticalGlideTypingClassifier.kt
+└── ...                                 # Upstream FlorisBoard files
+```
 
-The package names and SHA-256 hashes of the signature certificate are listed below, so you can verify both FlorisBoard variants with apksigner by using `apksigner verify --print-certs florisboard-<version>-<track>.apk` when you download the APK.
-If you have [AppVerifier](https://github.com/soupslurpr/AppVerifier) installed, you can alternatively copy both the package name and the hash of the corresponding track and share them to AppVerifier.
+## Bug Fixes Applied (vs Upstream)
 
-##### Stable track:
+Beyond feature additions, this fork includes fixes for on-device inference stability:
 
-dev.patrickgold.florisboard<br>
-0B:80:71:64:50:8E:AF:EB:1F:BB:81:5B:E7:A2:3C:77:FE:68:9D:94:B1:43:75:C9:9B:DA:A9:B6:57:7F:D6:D6
+- **Dynamic prompt buffer**: Fixed 4096-byte buffer replaced with `llama_chat_apply_template()` dynamic sizing — prevents silent failures on text longer than ~2 sentences
+- **KV cache clearing**: `llama_kv_cache_clear()` called before each inference to prevent context window exhaustion across calls
+- **Error propagation**: AI failures now surface actual error messages instead of silently showing "No changes needed"
+- **Voice timeout tuning**: Silence thresholds increased to 10s/8s with minimum listening duration to prevent premature auto-stop
 
-##### Preview track:
+## Upstream
 
-dev.patrickgold.florisboard.beta<br>
-0B:80:71:64:50:8E:AF:EB:1F:BB:81:5B:E7:A2:3C:77:FE:68:9D:94:B1:43:75:C9:9B:DA:A9:B6:57:7F:D6:D6
-
-
-## Used libraries, components and icons
-* [AndroidX libraries](https://github.com/androidx/androidx) by
-  [Android Jetpack](https://github.com/androidx)
-* [AboutLibraries](https://github.com/mikepenz/AboutLibraries) by
-  [mikepenz](https://github.com/mikepenz)
-* [Google Material icons](https://github.com/google/material-design-icons) by
-  [Google](https://github.com/google)
-* [JetPref preference library](https://github.com/patrickgold/jetpref) by
-  [patrickgold](https://github.com/patrickgold)
-* [KotlinX coroutines library](https://github.com/Kotlin/kotlinx.coroutines) by
-  [Kotlin](https://github.com/Kotlin)
-* [KotlinX serialization library](https://github.com/Kotlin/kotlinx.serialization) by
-  [Kotlin](https://github.com/Kotlin)
-
-Many thanks to [Nikolay Anzarov](https://www.behance.net/nikolayanzarov) ([@BloodRaven0](https://github.com/BloodRaven0)) for designing and providing the main app icons to this project!
+This project is a fork of [FlorisBoard](https://github.com/florisboard/florisboard) by [Patrick Gold](https://github.com/patrickgold). All original FlorisBoard features, theming, and privacy-respecting design remain intact. See [upstream README](https://github.com/florisboard/florisboard) for the full feature set.
 
 ## License
-```
-Copyright 2020-2026 The FlorisBoard Contributors
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```
-
-Thanks to [The FlorisBoard Contributors](https://github.com/florisboard/florisboard/graphs/contributors) for making this project possible!
-
-<!-- BEGIN SECTION: obtainium_links -->
-<!-- auto-generated link templates, do NOT edit by hand -->
-<!-- see fastlane/update-readme.sh -->
-[obtainium_preview]: https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://app/%7B%22id%22%3A%22dev.patrickgold.florisboard.beta%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fflorisboard%2Fflorisboard%22%2C%22author%22%3A%22florisboard%22%2C%22name%22%3A%22FlorisBoard%20Preview%22%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Atrue%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22preview%5C%22%7D%22%7D%0A
-[obtainium_stable]: https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://app/%7B%22id%22%3A%22dev.patrickgold.florisboard%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fflorisboard%2Fflorisboard%22%2C%22author%22%3A%22florisboard%22%2C%22name%22%3A%22FlorisBoard%20Stable%22%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Afalse%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22stable%5C%22%7D%22%7D%0A
-<!-- END SECTION: obtainium_links -->
+Apache 2.0 — same as upstream FlorisBoard. See [LICENSE](LICENSE).
