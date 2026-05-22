@@ -366,6 +366,7 @@ class FlorisImeService : LifecycleInputMethodService() {
 
     override fun onStartInput(info: EditorInfo?, restarting: Boolean) {
         flogInfo { "restarting=$restarting info=${info?.debugSummarize()}" }
+        gemmaManager.onStartInput(info)
         super.onStartInput(info, restarting)
         if (info == null) return
         val editorInfo = FlorisEditorInfo.wrap(info)
@@ -423,6 +424,7 @@ class FlorisImeService : LifecycleInputMethodService() {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         flogInfo { "finishing=$finishingInput" }
+        gemmaManager.forceStop()
         super.onFinishInputView(finishingInput)
         editorInstance.handleFinishInputView()
     }
@@ -446,6 +448,7 @@ class FlorisImeService : LifecycleInputMethodService() {
 
     override fun onWindowHidden() {
         super.onWindowHidden()
+        gemmaManager.forceStop()
         if (windowController.onWindowHidden()) {
             flogInfo(LogTopic.IMS_EVENTS)
             activeState.batchEdit {
@@ -456,6 +459,11 @@ class FlorisImeService : LifecycleInputMethodService() {
         } else {
             flogWarning(LogTopic.IMS_EVENTS) { "Ignoring (is already hidden)" }
         }
+    }
+
+    override fun onUnbindInput() {
+        gemmaManager.forceStop()
+        super.onUnbindInput()
     }
 
     override fun onEvaluateFullscreenMode(): Boolean {

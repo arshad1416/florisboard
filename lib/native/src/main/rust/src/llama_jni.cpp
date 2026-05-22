@@ -11,6 +11,102 @@
 
 extern "C" {
 
+static int case_insensitive_starts_with(const char *str, const char *prefix) {
+    while (*prefix) {
+        char s = *str;
+        char p = *prefix;
+        if (s >= 'A' && s <= 'Z') s = s - 'A' + 'a';
+        if (p >= 'A' && p <= 'Z') p = p - 'A' + 'a';
+        if (s != p) return 0;
+        str++;
+        prefix++;
+    }
+    return 1;
+}
+
+static void clean_output(char *str) {
+    if (!str) return;
+    
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        
+        // Trim leading whitespace
+        char *start = str;
+        while (*start && (*start == ' ' || *start == '\n' || *start == '\r' || *start == '\t')) {
+            start++;
+        }
+        if (start != str) {
+            memmove(str, start, strlen(start) + 1);
+            changed = true;
+        }
+        
+        int len = strlen(str);
+        
+        // Trim trailing whitespace
+        while (len > 0 && (str[len - 1] == ' ' || str[len - 1] == '\n' || str[len - 1] == '\r' || str[len - 1] == '\t')) {
+            str[--len] = '\0';
+            changed = true;
+        }
+        
+        // Strip common prefixes
+        if (case_insensitive_starts_with(str, "corrected text:")) {
+            memmove(str, str + 15, strlen(str + 15) + 1);
+            changed = true;
+            continue;
+        }
+        if (case_insensitive_starts_with(str, "polished text:")) {
+            memmove(str, str + 14, strlen(str + 14) + 1);
+            changed = true;
+            continue;
+        }
+        if (case_insensitive_starts_with(str, "output text:")) {
+            memmove(str, str + 12, strlen(str + 12) + 1);
+            changed = true;
+            continue;
+        }
+        if (case_insensitive_starts_with(str, "corrected:")) {
+            memmove(str, str + 10, strlen(str + 10) + 1);
+            changed = true;
+            continue;
+        }
+        if (case_insensitive_starts_with(str, "polished:")) {
+            memmove(str, str + 9, strlen(str + 9) + 1);
+            changed = true;
+            continue;
+        }
+        if (case_insensitive_starts_with(str, "output:")) {
+            memmove(str, str + 7, strlen(str + 7) + 1);
+            changed = true;
+            continue;
+        }
+        if (case_insensitive_starts_with(str, "result:")) {
+            memmove(str, str + 7, strlen(str + 7) + 1);
+            changed = true;
+            continue;
+        }
+        if (case_insensitive_starts_with(str, "->")) {
+            memmove(str, str + 2, strlen(str + 2) + 1);
+            changed = true;
+            continue;
+        }
+        
+        // Strip wrapping quotes
+        if (len >= 2 && str[0] == '"' && str[len - 1] == '"') {
+            memmove(str, str + 1, (size_t)(len - 2));
+            str[len - 2] = '\0';
+            changed = true;
+            continue;
+        }
+        if (len >= 2 && str[0] == '\'' && str[len - 1] == '\'') {
+            memmove(str, str + 1, (size_t)(len - 2));
+            str[len - 2] = '\0';
+            changed = true;
+            continue;
+        }
+    }
+}
+
 typedef struct {
     struct llama_model *model;
     struct llama_context *ctx;
@@ -201,9 +297,12 @@ Java_org_florisboard_libnative_LlamaInference_nativePolish(
     env->ReleaseStringUTFChars(context_text_j, context_text);
     env->ReleaseStringUTFChars(corrections_j, corrections);
 
-    if (prompt_len < 0) {
+    if (prompt_len < 0 || prompt_len >= (int)sizeof(prompt)) {
+        if (prompt_len < 0) {
+            return NULL;
+        }
         // Buffer too small — retry with exact size needed
-        int needed = -prompt_len;
+        int needed = prompt_len + 1;
         LOGI("prompt buffer too small (4096), retrying with %d bytes", needed);
         char *big_prompt = (char *)malloc((size_t)needed);
         if (!big_prompt) return NULL;
@@ -216,11 +315,12 @@ Java_org_florisboard_libnative_LlamaInference_nativePolish(
         env->ReleaseStringUTFChars(raw_text_j, raw_text);
         env->ReleaseStringUTFChars(context_text_j, context_text);
         env->ReleaseStringUTFChars(corrections_j, corrections);
-        if (prompt_len < 0) { free(big_prompt); return NULL; }
+        if (prompt_len < 0 || prompt_len >= needed) { free(big_prompt); return NULL; }
+        big_prompt[prompt_len] = '\0';
 
         // Process with big_prompt (inline the rest of the function)
         // Clear KV cache to prevent context overflow across calls
-        llama_kv_cache_clear(inf->ctx);
+        llama_memory_clear(llama_get_memory(inf->ctx), true);
         LOGI("KV cache cleared before big-prompt inference");
 
         int n_tokens_max_b = prompt_len / 2 + 256;
@@ -282,17 +382,18 @@ Java_org_florisboard_libnative_LlamaInference_nativePolish(
         if (im_end_b) { result_len_b = (int)(im_end_b - result_b); result_b[result_len_b] = '\0'; }
         const char *im_start_b = strstr(result_b, "<|im_start|>");
         if (im_start_b) { int nl = (int)(im_start_b - result_b); if (nl < result_len_b) { result_len_b = nl; result_b[result_len_b] = '\0'; } }
-        while (result_len_b > 0 && (result_b[result_len_b-1] == ' ' || result_b[result_len_b-1] == '\n')) result_b[--result_len_b] = '\0';
-        int s_b = 0;
-        while (s_b < result_len_b && (result_b[s_b] == ' ' || result_b[s_b] == '\n')) s_b++;
-        jstring ret_b = env->NewStringUTF(result_b + s_b);
+
+        clean_output(result_b);
+        jstring ret_b = env->NewStringUTF(result_b);
         free(result_b);
         return ret_b;
     }
 
+    prompt[prompt_len] = '\0';
+
     // Clear KV cache before processing new prompt to prevent
     // context overflow from previous polish/proofread calls.
-    llama_kv_cache_clear(inf->ctx);
+    llama_memory_clear(llama_get_memory(inf->ctx), true);
 
     // Tokenize the prompt
     int n_tokens_max = prompt_len / 2 + 256;
@@ -409,18 +510,9 @@ Java_org_florisboard_libnative_LlamaInference_nativePolish(
         }
     }
 
-    // Trim leading/trailing whitespace
-    while (result_len > 0 && (result[result_len-1] == ' ' || result[result_len-1] == '\n')) {
-        result[--result_len] = '\0';
-    }
-    int start = 0;
-    while (start < result_len && (result[start] == ' ' || result[start] == '\n')) {
-        start++;
-    }
-
-    LOGI("Returning result (len=%d): [%s]", result_len, result_len > 0 ? result + start : "(empty)");
-
-    return env->NewStringUTF(result + start);
+    clean_output(result);
+    LOGI("Returning result: [%s]", result);
+    return env->NewStringUTF(result);
 }
 
 } // extern "C"

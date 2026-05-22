@@ -137,7 +137,8 @@ class ModelManager(private val context: Context) {
         val memInfo = android.app.ActivityManager.MemoryInfo()
         activityManager.getMemoryInfo(memInfo)
         val availMemMB = memInfo.availMem / (1024 * 1024)
-        return availMemMB >= 2500
+        Log.i(TAG, "hasEnoughMemory: availMem = $availMemMB MB (required >= 1200 MB)")
+        return availMemMB >= 1200
     }
 
     companion object {

@@ -1,8 +1,12 @@
 package dev.patrickgold.florisboard.gemma
 
 import android.util.Log
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
 import androidx.lifecycle.lifecycleScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.subtypeManager
 import kotlinx.coroutines.*
@@ -54,12 +58,23 @@ class GemmaManager(private val service: FlorisImeService) {
     private var lastPolishAi: String = ""
     @Volatile
     private var hasPendingPolishCheck = false
+    @Volatile
+    private var polishOnFinal = false
+
+    var privacyMode: PrivacyMode by mutableStateOf(PrivacyMode.Open)
+        private set
 
     val isBusy: Boolean get() = state.value != State.Idle && state.value != State.AwaitingPolish
 
     fun onCreate() {
         personalDictionary.clearAll()
         personalDictionary.load()
+    }
+
+    fun onStartInput(info: EditorInfo?) {
+        forceStop()
+        privacyMode = PrivacyClassifier.classify(info)
+        Log.i(TAG, "onStartInput: privacyMode = $privacyMode")
     }
 
     fun onDestroy() {
@@ -71,10 +86,14 @@ class GemmaManager(private val service: FlorisImeService) {
     // ── Voice Input ──────────────────────────────────────────────────────
 
     fun toggleVoiceInput() {
+        if (privacyMode == PrivacyMode.Sensitive) {
+            service.showShortToastSync("Voice typing disabled in sensitive fields")
+            return
+        }
         service.lifecycleScope.launch(Dispatchers.Main) {
             stateMutex.withLock {
                 when (state.value) {
-                    is State.Listening -> stopListeningInternal()
+                    is State.Listening -> stopListeningAndPolish()
                     is State.AwaitingPolish -> finishAndPolishInternal()
                     is State.Idle -> startListeningInternal()
                     else -> { /* Busy */ }
@@ -83,12 +102,18 @@ class GemmaManager(private val service: FlorisImeService) {
         }
     }
 
+    private fun stopListeningAndPolish() {
+        polishOnFinal = true
+        transcriber?.finishListening()
+    }
+
     private suspend fun startListeningInternal() {
         val sessionId = activeSessionId.incrementAndGet()
         aiJob?.cancel()
         transcriber?.stop()
 
         state.value = State.Listening
+        polishOnFinal = false
         service.isVoiceTypingActive = true
 
         service.currentInputConnection?.let { ic ->
@@ -112,19 +137,34 @@ class GemmaManager(private val service: FlorisImeService) {
                 }
             }
 
+            override fun onSegment(text: String) {
+                // No-op: we handle the UI dynamically through onPartial and onFinal to avoid sync issues.
+            }
+
             override fun onFinal(text: String) {
                 service.lifecycleScope.launch(Dispatchers.Main) {
                     stateMutex.withLock {
                         service.isVoiceTypingActive = false
                         if (!isSessionActive() || state.value != State.Listening) return@withLock
-                        lastFinalText = text
-                        if (text.isNotBlank()) {
+                        lastFinalText = text.trim()
+                        if (lastFinalText.isNotBlank()) {
                             service.currentInputConnection?.let { ic ->
-                                ic.setComposingText(text, 1)
+                                ic.setComposingText(lastFinalText, 1)
                                 ic.finishComposingText()
                             }
-                            state.value = State.AwaitingPolish
-                            service.showShortToastSync("Tap Mic to Polish")
+                            if (privacyMode == PrivacyMode.NoLearning) {
+                                state.value = State.Idle
+                                service.showShortToastSync("Committed (Polish disabled in incognito)")
+                            } else {
+                                if (polishOnFinal) {
+                                    polishOnFinal = false
+                                    state.value = State.AwaitingPolish
+                                    finishAndPolishInternal()
+                                } else {
+                                    state.value = State.AwaitingPolish
+                                    service.showShortToastSync("Tap Mic to Polish")
+                                }
+                            }
                         } else {
                             state.value = State.Idle
                         }
@@ -156,6 +196,7 @@ class GemmaManager(private val service: FlorisImeService) {
         transcriber?.stop()
         transcriber = null
         aiJob?.cancel()
+        polishOnFinal = false
         state.value = State.Idle
         service.isVoiceTypingActive = false
         activeSessionId.incrementAndGet()
@@ -164,6 +205,11 @@ class GemmaManager(private val service: FlorisImeService) {
     // ── Polish (Voice → AI) ──────────────────────────────────────────────
 
     private suspend fun finishAndPolishInternal() {
+        if (privacyMode == PrivacyMode.NoLearning) {
+            state.value = State.Idle
+            service.isVoiceTypingActive = false
+            return
+        }
         val raw = lastFinalText.takeIf { it.isNotBlank() } ?: run {
             state.value = State.Idle
             service.isVoiceTypingActive = false
@@ -226,6 +272,14 @@ class GemmaManager(private val service: FlorisImeService) {
     // ── Proofread (full text field) ──────────────────────────────────────
 
     fun proofread() {
+        if (privacyMode == PrivacyMode.Sensitive) {
+            service.showShortToastSync("Proofreading disabled in sensitive fields")
+            return
+        }
+        if (privacyMode == PrivacyMode.NoLearning) {
+            service.showShortToastSync("Proofreading disabled in incognito fields")
+            return
+        }
         service.lifecycleScope.launch(Dispatchers.Main) {
             val canProceed = stateMutex.withLock {
                 if (state.value != State.Idle) false else { state.value = State.Proofreading; true }
@@ -277,6 +331,7 @@ class GemmaManager(private val service: FlorisImeService) {
                 transcriber?.stop()
                 transcriber = null
                 aiJob?.cancel()
+                polishOnFinal = false
                 state.value = State.Idle
                 activeSessionId.incrementAndGet()
             }

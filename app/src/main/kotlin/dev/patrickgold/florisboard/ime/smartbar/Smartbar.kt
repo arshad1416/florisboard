@@ -67,6 +67,8 @@ import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.keyboardManager
 import dev.patrickgold.florisboard.nlpManager
+import dev.patrickgold.florisboard.gemma.PrivacyMode
+import org.florisboard.lib.android.showShortToastSync
 import dev.patrickgold.jetpref.datastore.model.collectAsState
 import kotlinx.coroutines.launch
 import org.florisboard.lib.android.AndroidVersion
@@ -159,10 +161,24 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
         if (gemmaManager == null) return
 
         if (proofreadEnabled) {
+            val isProofreadRestricted = gemmaManager.privacyMode == PrivacyMode.Sensitive || gemmaManager.privacyMode == PrivacyMode.NoLearning
             SnyggIconButton(
                 elementName = FlorisImeUi.SmartbarExtendedActionsToggle.elementName,
-                onClick = { gemmaManager.proofread() },
-                modifier = Modifier.sizeIn(maxHeight = FlorisImeSizing.smartbarHeight).aspectRatio(1f)
+                onClick = {
+                    if (isProofreadRestricted) {
+                        if (gemmaManager.privacyMode == PrivacyMode.Sensitive) {
+                            context.showShortToastSync("Proofreading disabled in sensitive fields")
+                        } else {
+                            context.showShortToastSync("Proofreading disabled in incognito fields")
+                        }
+                    } else {
+                        gemmaManager.proofread()
+                    }
+                },
+                modifier = Modifier
+                    .sizeIn(maxHeight = FlorisImeSizing.smartbarHeight)
+                    .aspectRatio(1f)
+                    .alpha(if (isProofreadRestricted) 0.3f else 1.0f)
             ) {
                 SnyggIcon(
                     imageVector = ImageVector.vectorResource(id = R.drawable.ic_ai_proofread),
@@ -171,10 +187,20 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
             }
         }
         if (voiceTypingEnabled) {
+            val isMicRestricted = gemmaManager.privacyMode == PrivacyMode.Sensitive
             SnyggIconButton(
                 elementName = FlorisImeUi.SmartbarExtendedActionsToggle.elementName,
-                onClick = { gemmaManager.toggleVoiceInput() },
-                modifier = Modifier.sizeIn(maxHeight = FlorisImeSizing.smartbarHeight).aspectRatio(1f)
+                onClick = {
+                    if (isMicRestricted) {
+                        context.showShortToastSync("Voice typing disabled in sensitive fields")
+                    } else {
+                        gemmaManager.toggleVoiceInput()
+                    }
+                },
+                modifier = Modifier
+                    .sizeIn(maxHeight = FlorisImeSizing.smartbarHeight)
+                    .aspectRatio(1f)
+                    .alpha(if (isMicRestricted) 0.3f else 1.0f)
             ) {
                 SnyggIcon(
                     imageVector = Icons.Default.Mic,

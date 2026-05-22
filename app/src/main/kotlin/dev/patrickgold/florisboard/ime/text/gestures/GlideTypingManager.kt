@@ -98,7 +98,9 @@ class GlideTypingManager(private val context: Context) : GlideTypingGesture.List
 
     /** Synchronously reset preference to statistical so crashy native path is not re-entered. */
     private fun forceFallbackToStatistical() {
-        prefs.glide.glideEngineMode.set(GlideEngineMode.STATISTICAL_FOSS)
+        scope.launch {
+            prefs.glide.glideEngineMode.set(GlideEngineMode.STATISTICAL_FOSS)
+        }
         nativeFailureCount = 0
     }
 
